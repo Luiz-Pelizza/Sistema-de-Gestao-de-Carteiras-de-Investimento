@@ -2,6 +2,7 @@
 session_start();
 include 'config.php';
 include 'brapi.php';
+include 'update_dividend.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: index.php");
@@ -9,6 +10,49 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id'];
+
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['dividend_type']) && isset($_POST['dividend_value']) && isset($_POST['update_id'])) {
+    $update_id = $_POST['update_id'];
+    $dividend_type = $_POST['dividend_type'];
+    $dividend_value = $_POST['dividend_value'];
+
+    $stmt = $conn->prepare("UPDATE acoes SET dividend_type = ?, dividend_value = ? WHERE id = ?");
+    $stmt->bind_param("sdi", $dividend_type, $dividend_value, $update_id);
+    $stmt->execute();
+    exit;
+}
+
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_portfolio'])) {
+    $stmt = $conn->prepare("DELETE FROM acoes WHERE user_id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    
+    $stmt = $conn->prepare("DELETE FROM usuarios WHERE id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+
+    session_destroy();
+    header("Location: index.php");
+    exit;
+}
+
+$stmt = $conn->prepare("SELECT username FROM usuarios WHERE id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$user = $result->fetch_assoc();
+
+if (!$user) {
+    header("Location: index.php");
+    exit;
+}
+
+$stmt = $conn->prepare("SELECT id, symbol, purchase_price, quantity, dividend_value, dividend_type FROM acoes WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+
 
 $stmt = $conn->prepare("SELECT username FROM usuarios WHERE id = ?");
 $stmt->bind_param("i", $user_id);
@@ -118,6 +162,7 @@ function get_dividend_value($symbol)
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/2.5.1/uicons-solid-rounded/css/uicons-solid-rounded.css'>
     <script src="js/main.js"></script>
     <title>Carteira: <?= $username ?></title>
 </head>
@@ -128,7 +173,7 @@ function get_dividend_value($symbol)
             <div class="w10"><img href="" src="images/Marca d'água branca 3.png"></div>
             <div class="itens-menu">
                 <form method="POST" action="logout.php">
-                    <button class="btn-sair" type="submit">Sair da carteira (<?= $username ?>) </button>
+                    <button class="btn-sair" type="submit">Sair da carteira</button>
                 </form>
             </div>
         </div>
@@ -137,6 +182,7 @@ function get_dividend_value($symbol)
     <div class="fundo">
         <div class="container2">
             <img src="images/Marcapreta.png" alt="Imagem de Fundo" class="background-image">
+            <div class="n"><p><?= $username ?></p></div>
             <form method="POST" action="<?= $_SERVER['PHP_SELF'] ?>">
                 <table border="1">
                     <thead>
@@ -153,7 +199,7 @@ function get_dividend_value($symbol)
                             <th></th>
                         </tr>
                         <tr>
-                            <th class="cinza" ><input placeholder="ATIVO" type="text" name="symbol" required></th>
+                            <th class="cinza"><input placeholder="ATIVO" type="text" name="symbol" required></th>
                             <th><input placeholder="00.00" type="number" step="0.01" name="purchase_price" required></th>
                             <th>N/A</th>
                             <th><input placeholder="00" type="number" name="quantity" required></th>
@@ -171,6 +217,8 @@ function get_dividend_value($symbol)
                             <th><button class="ad" type="submit" name="add_action">ADICIONAR</button></th>
                         </tr>
                     </thead>
+            </form>
+            <form method="POST" action="<?= $_SERVER['PHP_SELF'] ?>">
                     <tbody>
                         <?php foreach ($rows as $row) : ?>
                             <tr>
@@ -181,16 +229,15 @@ function get_dividend_value($symbol)
                                 <td><?= htmlspecialchars($row['total_value']) ?></td>
                                 <td class="<?= $row['gain_loss'] >= 0 ? 'positive' : 'negative' ?>"><?= htmlspecialchars($row['gain_loss']) ?></td>
                                 <td>
-                                    <form method="POST" action="<?= $_SERVER['PHP_SELF'] ?>" id="update_form_<?= $row['id'] ?>">
-                                        <input type="hidden" name="update_id" value="<?= $row['id'] ?>">
-                                        <input type="hidden" name="symbol" value="<?= $row['symbol'] ?>">
-                                        <select style="cursor: pointer;" name="dividend_type" onchange="toggleDividendInput(this)" data-automatic-value="0">
-                                            <option value="automatic">Automático</option>
-                                            <option value="manual">Manual</option>
-                                        </select>
-                                        <input type="number" step="0.01" name="dividend_value" value="<?= $row['dividend_value'] ?>" <?= $row['dividend_type'] != 'manual' ? 'style="display:none;"' : '' ?>>
-                                        <button class="update" type="submit" name="update_dividend">Atualizar</button>
-                                    </form>
+                                <form method="POST" action="<?= $_SERVER['PHP_SELF'] ?>" id="update_form_<?= $row['id'] ?>">
+                                <input type="hidden" name="update_id" value="<?= $row['id'] ?>">
+                                <input type="hidden" name="symbol" value="<?= $row['symbol'] ?>">
+                                    <select style="cursor: pointer;" name="dividend_type" onchange="toggleDividendInput(this)" data-automatic-value="0">
+                                        <option value="automatic" <?= $row['dividend_type'] == 'automatic' ? 'selected' : '' ?>>Automático</option>
+                                        <option value="manual" <?= $row['dividend_type'] == 'manual' ? 'selected' : '' ?>>Manual</option>
+                                    </select>
+                                    <input type="number" step="0.01" name="dividend_value" value="<?= $row['dividend_value'] ?>" <?= $row['dividend_type'] != 'manual' ? 'style="display:none;"' : '' ?>>
+                                </form>
                                 </td>
                                 <td><?= htmlspecialchars($row['total_dividends']) ?></td>
                                 <td><?= htmlspecialchars($row['monthly_yield']) ?>%</td>
@@ -209,6 +256,12 @@ function get_dividend_value($symbol)
         <div class="totals">
             <div>Total Investido: R$ <?= $total_invested_formatted ?></div>
             <div><span class="<?= $total_pnl >= 0 ? 'positive' : 'negative' ?>">P&L Total: R$ <?= $total_pnl_formatted ?></span></div>
+            <div class="ex">
+                <form method="POST" action="<?= $_SERVER['PHP_SELF'] ?>" onsubmit="return confirm('Tem certeza que deseja excluir esta carteira?');">
+                    <input type="hidden" name="delete_portfolio">
+                    <button class="delete-portfolio" type="submit"><i class="fi fi-sr-file-minus"></i></button>
+                </form>
+            </div>
         </div>
     </div>
 </body>

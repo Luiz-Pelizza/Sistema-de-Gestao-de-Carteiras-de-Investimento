@@ -1,24 +1,34 @@
-function toggleDividendInput(select) {
-  var manualInput = select.nextElementSibling;
-  var automaticValue = select.getAttribute("data-automatic-value");
+function toggleDividendInput(selectElement) {
+  var inputElement = selectElement.nextElementSibling;
+  var form = selectElement.closest('form');
+  var dividendValue = inputElement.value;
 
-  if (select.value === "manual") {
-    manualInput.style.display = "inline-block";
-    manualInput.disabled = false;
-  } else if (select.value === "automatic") {
-    if (!automaticValue || parseFloat(automaticValue) === 0) {
-      manualInput.style.display = "inline-block";
-      manualInput.disabled = true;
-    } else {
-      manualInput.style.display = "none";
-    }
+  if (selectElement.value === 'manual') {
+      inputElement.style.display = 'inline-block';
+  } else {
+      inputElement.style.display = '';
+      dividendValue = 0;
   }
+
+  var updateData = new FormData(form);
+  updateData.append('dividend_type', selectElement.value);
+  updateData.append('dividend_value', dividendValue);
+
+  fetch('update_dividend.php', {
+      method: 'POST',
+      body: updateData
+  })
+  .then(response => response.text())
+  .then(data => {
+      console.log(data);
+  })
+  .catch(error => {
+      console.error('Error:', error);
+  });
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-  const rows = document.querySelectorAll(
-    ".table tbody tr:not(.expand-content)"
-  );
+  const rows = document.querySelectorAll(".table tbody tr:not(.expand-content)");
 
   rows.forEach((row) => {
     row.addEventListener("click", function () {
@@ -28,11 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
           expandContent.style.display === "none" ||
           expandContent.style.display === ""
         ) {
-          document
-            .querySelectorAll(".expand-content")
-            .forEach((content) => (content.style.display = "none"));
           expandContent.style.display = "block";
-          // Ajusta a posição inicial do popup ao centro da tela
           expandContent.style.top = `${
             window.innerHeight / 2 - expandContent.offsetHeight / 2
           }px`;
@@ -46,8 +52,12 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
+  let dragItem = null;
+  let offsetX = 0;
+  let offsetY = 0;
+
   document.addEventListener("mousedown", function (e) {
-    if (e.target.closest(".expand-content")) {
+    if (e.target.closest(".expand-content") && !e.target.closest(".expand-header")) {
       dragItem = e.target.closest(".expand-content");
       offsetX = e.clientX - dragItem.getBoundingClientRect().left;
       offsetY = e.clientY - dragItem.getBoundingClientRect().top;
@@ -76,3 +86,58 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   };
 });
+
+function generatePDF(username) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  const userRow = document.querySelector(`tr[data-username="${username}"]`);
+  if (!userRow) {
+      console.error('Usuário não encontrado:', username);
+      return;
+  }
+
+  const expandContent = userRow.nextElementSibling.querySelector('.expand-content table');
+  if (!expandContent) {
+      console.error('Conteúdo expandido não encontrado para o usuário:', username);
+      return;
+  }
+
+  let yPosition = 10;
+  doc.text(`Resumo da Carteira: ${username}`, 10, yPosition);
+  yPosition += 10;
+
+  const headers = ['Ativo', 'Preço de Compra', 'Preço Atual', 'Quantidade', 'Valor Total', 'P&L', 'Dividendo', 'Total Dividendos', 'Rendimento Mensal'];
+  const data = [...expandContent.querySelectorAll('tbody tr')].map(tr => {
+      return [...tr.querySelectorAll('td')].map(td => td.textContent);
+  });
+
+  doc.autoTable({
+      startY: yPosition,
+      head: [headers],
+      body: data
+  });
+
+  yPosition = doc.autoTable.previous.finalY + 10;
+
+  // Adiciona valores de Total Investido, P&L Total e Total Rendimento Mensal
+  const totalInvestedElem = userRow.querySelector('[data-total-invested]');
+  const totalPnLElem = userRow.querySelector('[data-total-pnl]');
+  const totalMonthlyYieldElem = userRow.querySelector('[data-total-monthly-yield]');
+
+  if (totalInvestedElem && totalPnLElem && totalMonthlyYieldElem) {
+      const totalInvested = totalInvestedElem.textContent;
+      const totalPnL = totalPnLElem.textContent;
+      const totalMonthlyYield = totalMonthlyYieldElem.textContent;
+
+      doc.text(`Total Investido: ${totalInvested}`, 10, yPosition);
+      yPosition += 10;
+      doc.text(`P&L Total: ${totalPnL}`, 10, yPosition);
+      yPosition += 10;
+      doc.text(`Total Rendimento Mensal: ${totalMonthlyYield}`, 10, yPosition);
+  } else {
+      console.error('Elementos totais não encontrados para o usuário:', username);
+  }
+
+  doc.save(`Resumo_Carteira_${username}.pdf`);
+}

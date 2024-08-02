@@ -17,8 +17,8 @@ header{
 .menu {
     background-color: #262626;
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: space-between;
     width: 100%;
     padding: 20px 100px 0px 100px;
 }
@@ -28,6 +28,9 @@ header{
     flex-wrap: wrap;
     width: 650px;
     padding: 4px;
+    position:relative;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 img{
@@ -36,8 +39,9 @@ img{
 
 .itens-menu {
     display: flex;
-    justify-content: flex-end;
-    width: 73%;
+    align-items: flex-end;
+    margin-left: auto;
+    margin-top: 100px;
     padding-top: 1px;
 }
 
@@ -47,7 +51,8 @@ img{
     text-decoration: none;
     background: none;
     cursor: pointer;
-    font-size: 36px;
+    font-size: 12px;
+    margin-right: 10px;
 }
 
 .fundo {
@@ -67,7 +72,7 @@ img{
     border-radius: 8px;
     flex: 2;
     min-width: 100%;
-    max-height: 800px;
+    max-height: 80vh;
     overflow: auto;
     border-bottom: 30px solid white;
 }
@@ -234,14 +239,13 @@ select::after {
     width: 100%;
     max-width: 85%;
     position: fixed;
-    bottom: 20px;
+    bottom: 50px;
     font-size: 18px;
     text-align: right;
     flex-wrap: wrap;
-    gap: 40px;
-    margin-bottom: 3%;
+    gap: 20px;
     font-weight: bold;
-    padding: 10px 20px;
+    padding: 5px 20px;
     background-color: white;
 }
 
@@ -257,29 +261,23 @@ select::after {
     background-color: #f8d7da; 
 }
 
-@media screen and (max-width: 1440px) {
-    .container1 {
-        padding: 50px;
-        margin: 20px 0;
-        height: 100%;
-        max-height: 50%;
-    }
+.n{
+    font-size: 26px;
+    display: flex;
+    min-width: 100%;
+    justify-content: center;
+    background: #001969;
+    font-weight: bold;
+    color: white;
+}
+.ex{
+    display: flex;
+    align-items: flex-end;
+}
+.delete-portfolio{
+    background: none;
+    border: none;
+    text-decoration: none;
+    cursor: pointer;
 
-    .container1 h2 {
-        font-size: 26px;
-    }
-
-    .add {
-        font-size: 12px;
-    }
-
-    .container2 {
-        max-height: 650px;
-    }
-
-    .footer {
-        font-size: 14px;
-        max-width: 55%;
-        margin-bottom: 2%;
-    }
 }

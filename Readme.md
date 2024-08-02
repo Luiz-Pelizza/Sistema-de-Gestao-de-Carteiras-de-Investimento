@@ -46,5 +46,7 @@ CREATE TABLE acoes (
     purchase_price DECIMAL(10, 2) NOT NULL,
     quantity INT NOT NULL,
     dividend_value DECIMAL(10, 2) DEFAULT 0,
+    dividend_type varchar(10) DEFAULT 'automatic'
     FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE
+
 );

@@ -20,7 +20,9 @@ while ($user = $result->fetch_assoc()) {
     $totalInvested = 0;
     $totalPnL = 0;
     $totalMonthlyYield = 0;
+    $uniqueSymbols = [];
     $acoesArray = [];
+
 
     while ($acao = $acoesResult->fetch_assoc()) {
         $symbol = $acao['symbol'];
@@ -33,11 +35,16 @@ while ($user = $result->fetch_assoc()) {
         $totalValue = $currentPrice * $quantity;
         $gainLoss = ($currentPrice - $purchasePrice) * $quantity;
         $totalDividends = $dividendValue * $quantity;
-        $monthlyYield = ($dividendValue / $purchasePrice) * 100;
+        
+        $monthlyYield = ($purchasePrice > 0) ? ($dividendValue / $purchasePrice) * 100 : 0;
 
         $totalInvested += $purchasePrice * $quantity;
         $totalPnL += $gainLoss;
-        $totalMonthlyYield += $monthlyYield * $quantity;
+
+        if (!in_array($symbol, $uniqueSymbols)) {
+            $uniqueSymbols[] = $symbol;
+            $totalMonthlyYield += $monthlyYield;
+        }
 
         $acoesArray[] = [
             'symbol' => $symbol,
@@ -45,20 +52,31 @@ while ($user = $result->fetch_assoc()) {
             'current_price' => $currentPrice,
             'quantity' => $quantity,
             'total_value' => $totalValue,
-            'gain_loss' => $gainLoss,
+            'gain_loss' => number_format($gainLoss, 2),
             'dividend_value' => $dividendValue,
-            'total_dividends' => $totalDividends,
-            'monthly_yield' => $monthlyYield
+            'total_dividends' => number_format($totalDividends, 2),
+            'monthly_yield' => number_format($monthlyYield, 2),
         ];
     }
+
+    $totalQuantity = count($uniqueSymbols);
+    $averageMonthlyYield = ($totalQuantity > 0) ? $totalMonthlyYield / $totalQuantity : 0;
+    $totalMonthlyYieldFormatted = number_format($averageMonthlyYield, 2);
 
     $users[] = [
         'username' => $username,
         'total_invested' => number_format($totalInvested, 2),
         'total_pnl' => number_format($totalPnL, 2),
-        'total_monthly_yield' => number_format($totalMonthlyYield, 2),
+        'total_monthly_yield' => $totalMonthlyYieldFormatted,
+        'total_quantity' => $totalQuantity,
+        'total_monthly_yield_raw' => $totalMonthlyYield,
         'acoes' => $acoesArray
     ];
+}
+
+function get_dividend_value($symbol)
+{
+    return 0.50;
 }
 ?>
 
@@ -73,8 +91,10 @@ while ($user = $result->fetch_assoc()) {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
     <script src="js/main.js"></script>
+    <script src="js/jspdf.umd.min.js"></script>
+    <script src="js/jspdf.plugin.autotable.min.js"></script>
+    <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/2.5.1/uicons-solid-rounded/css/uicons-solid-rounded.css'>
     <title>Resumo de Carteiras</title>
-
 </head>
 
 <body>
@@ -87,7 +107,7 @@ while ($user = $result->fetch_assoc()) {
         <div class="container">
             <img src="images/Marcapreta.png" alt="Imagem de Fundo" class="background-image">
             <div class="main-content">
-                <h1>Resumo de Carteiras</h1>
+                <div class="n"><p>Todas as Carteiras</p></div>
                 <table class="table">
                     <thead>
                         <tr>
@@ -99,11 +119,11 @@ while ($user = $result->fetch_assoc()) {
                     </thead>
                     <tbody>
                         <?php foreach ($users as $user) : ?>
-                            <tr>
+                            <tr data-username="<?= htmlspecialchars($user['username']) ?>">
                                 <td><?= htmlspecialchars($user['username']) ?></td>
-                                <td>R$ <?= htmlspecialchars($user['total_invested']) ?></td>
-                                <td class="<?= $user['total_pnl'] >= 0 ? 'positive' : 'negative' ?>">R$ <?= htmlspecialchars($user['total_pnl']) ?></td>
-                                <td><?= htmlspecialchars($user['total_monthly_yield']) ?>%</td>
+                                <td data-total-invested>R$ <?= htmlspecialchars($user['total_invested']) ?></td>
+                                <td data-total-pnl class="<?= $user['total_pnl'] >= 0 ? 'positive' : 'negative' ?>">R$ <?= htmlspecialchars($user['total_pnl']) ?></td>
+                                <td data-total-monthly-yield><?= htmlspecialchars($user['total_monthly_yield']) ?>%</td>
                             </tr>
                             <tr class="expand-content">
                                 <td colspan="4">
@@ -127,15 +147,15 @@ while ($user = $result->fetch_assoc()) {
                                         <tbody>
                                             <?php foreach ($user['acoes'] as $acao) : ?>
                                                 <tr>
-                                                    <td class="cinza" ><?= htmlspecialchars($acao['symbol']) ?></td>
-                                                    <td>R$ <?= htmlspecialchars($acao['purchase_price']) ?></td>
-                                                    <td>R$ <?= htmlspecialchars($acao['current_price']) ?></td>
-                                                    <td><?= htmlspecialchars($acao['quantity']) ?></td>
-                                                    <td>R$ <?= htmlspecialchars($acao['total_value']) ?></td>
+                                                    <td class="cinza"><?= htmlspecialchars($acao['symbol']) ?></td>
+                                                    <td class="branco">R$ <?= htmlspecialchars($acao['purchase_price']) ?></td>
+                                                    <td class="branco">R$ <?= htmlspecialchars($acao['current_price']) ?></td>
+                                                    <td class="branco"><?= htmlspecialchars($acao['quantity']) ?></td>
+                                                    <td class="branco">R$ <?= htmlspecialchars($acao['total_value']) ?></td>
                                                     <td class="<?= $acao['gain_loss'] >= 0 ? 'positive' : 'negative' ?>">R$ <?= htmlspecialchars($acao['gain_loss']) ?></td>
-                                                    <td>R$ <?= htmlspecialchars($acao['dividend_value']) ?></td>
-                                                    <td>R$ <?= htmlspecialchars($acao['total_dividends']) ?></td>
-                                                    <td><?= htmlspecialchars($acao['monthly_yield']) ?>%</td>
+                                                    <td class="branco">R$ <?= htmlspecialchars($acao['dividend_value']) ?></td>
+                                                    <td class="branco">R$ <?= htmlspecialchars($acao['total_dividends']) ?></td>
+                                                    <td class="branco"><?= htmlspecialchars($acao['monthly_yield']) ?>%</td>
                                                 </tr>
                                             <?php endforeach; ?>
                                         </tbody>
@@ -144,6 +164,7 @@ while ($user = $result->fetch_assoc()) {
                                         <p>Total Investido: <b>R$ <?= htmlspecialchars($user['total_invested']) ?></b></p>
                                         <p>P&L Total: <b>R$ <?= htmlspecialchars($user['total_pnl']) ?></b></p>
                                         <p>Total Rendimento Mensal: <b><?= htmlspecialchars($user['total_monthly_yield']) ?>%</b></p>
+                                        <button class="ExportarPDF" onclick="generatePDF('<?= htmlspecialchars($user['username']) ?>')">Exportar PDF</i></button>
                                     </div>
                                 </td>
                             </tr>

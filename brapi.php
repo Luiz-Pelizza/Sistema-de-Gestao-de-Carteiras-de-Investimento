@@ -1,5 +1,4 @@
 <?php
-// Verificação para garantir que a função não seja redeclarada
 if (!function_exists('get_stock_price')) {
     function get_stock_price($symbol)
     {
